@@ -16,6 +16,11 @@ import {
 import "@xyflow/react/dist/style.css";
 import { CustomFlowNode } from "./FlowNode";
 import type { Flow } from "@/lib/types";
+import { NODE_TYPES } from "@/lib/nodes";
+
+const NODE_TYPES_MAP: Record<string, typeof CustomFlowNode> = Object.fromEntries(
+  NODE_TYPES.map((n) => [n.type, CustomFlowNode]),
+);
 
 interface Props {
   flow: Flow;
@@ -25,25 +30,6 @@ interface Props {
 }
 
 export function Canvas({ flow, onChange, selectedId, onSelect }: Props) {
-  const nodeTypes = useMemo(
-    () =>
-      Object.fromEntries(
-        // dynamic: every node type uses the same component
-        // (React Flow looks up by `type` field)
-        // Instead of registering each, we use a single wrapper via "default" path:
-        [],
-      ),
-    [],
-  );
-
-  // We register a single key per type lazily:
-  const nodeTypesAll = useMemo(() => {
-    const map: Record<string, typeof CustomFlowNode> = {};
-    for (const n of flow.nodes) map[n.type] = CustomFlowNode;
-    // also include all from registry so dragging new nodes works
-    return map;
-  }, [flow.nodes]);
-
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const next = applyNodeChanges(changes, flow.nodes as unknown as Node[]);
@@ -80,7 +66,7 @@ export function Canvas({ flow, onChange, selectedId, onSelect }: Props) {
       onConnect={onConnect}
       onNodeClick={(_, n) => onSelect(n.id)}
       onPaneClick={() => onSelect(null)}
-      nodeTypes={nodeTypesAll}
+      nodeTypes={NODE_TYPES_MAP}
       fitView
       proOptions={{ hideAttribution: true }}
     >
