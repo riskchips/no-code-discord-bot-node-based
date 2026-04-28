@@ -95,6 +95,19 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  /* Discord-inspired accent + node category colors */
+  --brand: oklch(0.62 0.19 268);
+  --brand-foreground: oklch(0.99 0 0);
+  --cat-trigger: oklch(0.7 0.18 30);
+  --cat-condition: oklch(0.78 0.16 90);
+  --cat-logic: oklch(0.7 0.16 200);
+  --cat-action: oklch(0.62 0.19 268);
+  --cat-interaction: oklch(0.65 0.2 320);
+  --cat-api: oklch(0.7 0.18 150);
+  --cat-delay: oklch(0.7 0.05 250);
+  --cat-storage: oklch(0.65 0.12 230);
+  --cat-utility: oklch(0.7 0.15 60);
+  --cat-subflow: oklch(0.6 0.1 300);
 }
 
 .dark {
@@ -130,6 +143,18 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  --brand: oklch(0.66 0.2 268);
+  --brand-foreground: oklch(0.99 0 0);
+  --cat-trigger: oklch(0.66 0.18 30);
+  --cat-condition: oklch(0.74 0.17 90);
+  --cat-logic: oklch(0.66 0.16 200);
+  --cat-action: oklch(0.66 0.2 268);
+  --cat-interaction: oklch(0.66 0.2 320);
+  --cat-api: oklch(0.68 0.18 150);
+  --cat-delay: oklch(0.65 0.04 250);
+  --cat-storage: oklch(0.62 0.13 230);
+  --cat-utility: oklch(0.7 0.15 60);
+  --cat-subflow: oklch(0.6 0.13 300);
 }
 
 @layer base {
