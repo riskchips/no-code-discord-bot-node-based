@@ -1,26 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Workspace } from "@/components/builder/Workspace";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "BotForge — No-Code Discord Bot Builder" },
+      { name: "description", content: "Visually build Discord bots with a node-based workflow editor and export a ready-to-run Node.js bot as a ZIP." },
+      { property: "og:title", content: "BotForge — No-Code Discord Bot Builder" },
+      { property: "og:description", content: "Drag-and-drop workflow editor for Discord bots. Export production-ready code as ZIP." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  return (
+    <>
+      <Workspace />
+      <Toaster richColors position="bottom-right" />
+    </>
+  );
 }
