@@ -13,8 +13,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
   Bot, Download, Upload, Play, Plus, Trash2, Copy, Settings, FileJson, Sun, Moon, Package,
+  BookOpen,
 } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { Link } from "@tanstack/react-router";
 import { Canvas } from "./Canvas";
 import { NodePalette } from "./NodePalette";
 import { Inspector } from "./Inspector";
@@ -205,6 +207,9 @@ export function Workspace() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <Link to="/docs" className="inline-flex items-center text-sm font-medium px-3 h-9 rounded-md hover:bg-accent transition-colors">
+            <BookOpen className="w-4 h-4 mr-1" /> How to use
+          </Link>
           <Button variant="ghost" size="sm" onClick={importProjectJson}>
             <Upload className="w-4 h-4 mr-1" /> Import
           </Button>

@@ -14,6 +14,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2 } from "lucide-react";
+import { ButtonsEditor } from "./editors/ButtonsEditor";
+import { SelectMenuEditor } from "./editors/SelectMenuEditor";
+import { ModalFieldsEditor } from "./editors/ModalFieldsEditor";
 
 interface Props {
   node: FlowNode | null;
@@ -86,6 +89,15 @@ export function Inspector({ node, onChange, onDelete }: Props) {
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+                {f.type === "buttons" && (
+                  <ButtonsEditor value={String(v ?? "[]")} onChange={(next) => set(f.key, next)} />
+                )}
+                {f.type === "selectMenu" && (
+                  <SelectMenuEditor value={String(v ?? "")} onChange={(next) => set(f.key, next)} />
+                )}
+                {f.type === "modalFields" && (
+                  <ModalFieldsEditor value={String(v ?? "[]")} onChange={(next) => set(f.key, next)} />
                 )}
                 {f.help && <div className="text-[11px] text-muted-foreground">{f.help}</div>}
               </div>

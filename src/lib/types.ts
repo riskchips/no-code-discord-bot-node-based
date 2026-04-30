@@ -13,7 +13,17 @@ export type NodeCategory =
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "textarea" | "number" | "boolean" | "select" | "json" | "code";
+  type:
+    | "text"
+    | "textarea"
+    | "number"
+    | "boolean"
+    | "select"
+    | "json"
+    | "code"
+    | "buttons"
+    | "selectMenu"
+    | "modalFields";
   options?: { label: string; value: string }[];
   placeholder?: string;
   default?: unknown;
@@ -83,4 +93,38 @@ export interface ExecContext {
   config: Record<string, unknown>;
   log: (e: Omit<LogEntry, "ts">) => void;
   resolve: (template: string) => string;
+}
+
+export interface DiscordEvent {
+  ts: number;
+  kind:
+    | "user-message"
+    | "bot-message"
+    | "bot-reply"
+    | "bot-dm"
+    | "interaction-reply"
+    | "modal"
+    | "moderation"
+    | "system";
+  author?: { name: string; bot?: boolean; color?: string };
+  replyTo?: { author: string; content: string };
+  ephemeral?: boolean;
+  message?: {
+    type: "text" | "embed";
+    content?: string;
+    embedTitle?: string;
+    embedColor?: string;
+    buttons?: { label: string; style: string; emoji?: string; disabled?: boolean; url?: string; customId?: string }[];
+    selectMenu?: {
+      customId: string;
+      placeholder?: string;
+      kind?: string;
+      options?: { label: string; value: string }[];
+    } | null;
+  };
+  modal?: {
+    title: string;
+    fields: { customId: string; label: string; style: string; placeholder?: string }[];
+  };
+  text?: string;
 }
