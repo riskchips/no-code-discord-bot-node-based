@@ -80,20 +80,29 @@ function safeJSON(s, fallback) {
   try { return JSON.parse(s); } catch { return fallback; }
 }
 
-function buildButtonsRow(buttons, resolve) {
-  if (!Array.isArray(buttons) || !buttons.length) return null;
-  const row = new ActionRowBuilder();
-  for (const b of buttons.slice(0, 5)) {
-    const style = BUTTON_STYLE_MAP[b.style] || ButtonStyle.Primary;
-    const btn = new ButtonBuilder()
-      .setLabel(resolve(String(b.label || "Button")).slice(0, 80))
-      .setStyle(style).setDisabled(!!b.disabled);
-    if (style === ButtonStyle.Link) btn.setURL(resolve(String(b.url || "https://discord.com")));
-    else btn.setCustomId(resolve(String(b.customId || "btn")));
-    if (b.emoji) { try { btn.setEmoji(resolve(String(b.emoji))); } catch {} }
-    row.addComponents(btn);
+function buildButtonsRows(buttons, resolve) {
+  if (!Array.isArray(buttons) || !buttons.length) return [];
+  // Backward-compat: flat array of buttons → single row
+  const rows = (typeof buttons[0] === "object" && buttons[0] !== null && !Array.isArray(buttons[0]))
+    ? [buttons]
+    : buttons;
+  const out = [];
+  for (const r of rows.slice(0, 5)) {
+    if (!Array.isArray(r) || !r.length) continue;
+    const row = new ActionRowBuilder();
+    for (const b of r.slice(0, 5)) {
+      const style = BUTTON_STYLE_MAP[b.style] || ButtonStyle.Primary;
+      const btn = new ButtonBuilder()
+        .setLabel(resolve(String(b.label || "Button")).slice(0, 80))
+        .setStyle(style).setDisabled(!!b.disabled);
+      if (style === ButtonStyle.Link) btn.setURL(resolve(String(b.url || "https://discord.com")));
+      else btn.setCustomId(resolve(String(b.customId || "btn")));
+      if (b.emoji) { try { btn.setEmoji(resolve(String(b.emoji))); } catch {} }
+      row.addComponents(btn);
+    }
+    if (row.components.length) out.push(row);
   }
-  return row;
+  return out;
 }
 
 function buildSelectMenuRow(menu, resolve) {
@@ -141,8 +150,7 @@ function buildPayload(opts, resolve) {
     payload.content = resolve(String(content || ""));
   }
   const rows = [];
-  const btnRow = buildButtonsRow(safeJSON(buttons, []), resolve);
-  if (btnRow) rows.push(btnRow);
+  rows.push(...buildButtonsRows(safeJSON(buttons, []), resolve));
   const menu = safeJSON(selectMenu, null);
   const menuRow = buildSelectMenuRow(menu, resolve);
   if (menuRow) rows.push(menuRow);
@@ -293,6 +301,36 @@ function makeCtx({ client, config, payload, interaction, message, member, reacti
     async archiveThread(threadId) {
       const t = await client.channels.fetch(resolve(threadId));
       if (t && t.setArchived) await t.setArchived(true);
+    },
+    async setPresence(status, activityType, activityText) {
+      try {
+        const ActivityType = require("discord.js").ActivityType;
+        const typeMap = { Playing: ActivityType.Playing, Watching: ActivityType.Watching, Listening: ActivityType.Listening, Competing: ActivityType.Competing, Custom: ActivityType.Custom };
+        client.user.setPresence({
+          status: status || "online",
+          activities: activityText ? [{ name: resolve(String(activityText)), type: typeMap[activityType] ?? ActivityType.Playing }] : [],
+        });
+      } catch (e) { console.error("setPresence:", e.message); }
+    },
+    async refreshSlashCommands(scope) {
+      try {
+        if (typeof globalThis.__refreshSlashCommands === "function") {
+          await globalThis.__refreshSlashCommands(scope === "guild" ? (guild && guild.id) : null);
+        }
+      } catch (e) { console.error("refreshSlash:", e.message); }
+    },
+    async fetchUser(userId, saveAs) {
+      const u = await client.users.fetch(resolve(userId));
+      if (u && saveAs) variables[saveAs] = u.username;
+      if (u) { variables.fetchedUserId = u.id; variables.fetchedUserTag = u.tag; }
+    },
+    async sendFile(channelId, url, filename, content) {
+      const ch = await client.channels.fetch(resolve(channelId) || (message && message.channelId) || (interaction && interaction.channelId));
+      if (!ch || !ch.send) return;
+      const u = resolve(url);
+      const opts = { files: [filename ? { attachment: u, name: resolve(filename) } : u] };
+      if (content) opts.content = resolve(content);
+      await ch.send(opts);
     },
     async iReply(opts) {
       if (!interaction) return;
@@ -535,6 +573,15 @@ async function runNode(node, ctx) {
       const member = ctx.member || (ctx.message && ctx.message.member) || (ctx.interaction && ctx.interaction.member);
       return (member && member.permissions && member.permissions.has("Administrator")) ? "true" : "false";
     }
+    case "condition.hasPermission": {
+      const member = ctx.member || (ctx.message && ctx.message.member) || (ctx.interaction && ctx.interaction.member);
+      const perm = d.permission || "";
+      return (member && member.permissions && member.permissions.has(perm)) ? "true" : "false";
+    }
+    case "condition.isBot": {
+      const u = (ctx.interaction && ctx.interaction.user) || (ctx.message && ctx.message.author) || null;
+      return (u && u.bot) ? "true" : "false";
+    }
     case "delay.wait": await ctx.sleep(Number(d.ms) || 0); return;
 
     case "action.sendMessage":
@@ -574,6 +621,10 @@ async function runNode(node, ctx) {
       await ctx.createThread({ channelId: r("channelId"), name: r("name"), messageId: r("messageId"), saveAs: r("saveAs") });
       return;
     case "action.archiveThread": await ctx.archiveThread(r("threadId")); return;
+    case "action.setPresence": await ctx.setPresence(d.status || "online", d.activityType || "Playing", r("activity")); return;
+    case "action.refreshSlashCommands": await ctx.refreshSlashCommands(d.scope || "global"); return;
+    case "action.fetchUser": await ctx.fetchUser(r("userId"), r("saveAs") || "fetchedUsername"); return;
+    case "action.sendFile": await ctx.sendFile(r("channelId"), r("url"), r("filename"), r("content")); return;
 
     case "interaction.reply":
       await ctx.iReply({ messageType: d.messageType || "text", content: r("content"), embedTitle: r("embedTitle"), embedColor: r("embedColor"), embedImage: r("embedImage"), buttons: r("buttons"), selectMenu: r("selectMenu"), ephemeral: !!d.ephemeral });
@@ -651,24 +702,38 @@ function findTriggers(type) {
 
 const SLASH_OPT_TYPES = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8, number: 10 };
 
+function buildSlashCommands() {
+  const slash = findTriggers("trigger.slashCommand");
+  return slash.map(({ node }) => {
+    const b = new SlashCommandBuilder()
+      .setName(String(node.data.name || "cmd").toLowerCase())
+      .setDescription(String(node.data.description || "No description"));
+    const lines = String(node.data.options || "").split("\\n").map((s) => s.trim()).filter(Boolean);
+    const json = b.toJSON();
+    json.options = lines.map((line) => {
+      const [name, type, ...rest] = line.split(":");
+      return { name: (name || "opt").trim(), description: (rest.join(":") || "—").trim(), type: SLASH_OPT_TYPES[(type || "string").trim()] || 3, required: false };
+    });
+    return json;
+  });
+}
+
+globalThis.__refreshSlashCommands = async function (guildId) {
+  const rest = new REST({ version: "10" }).setToken(resolveToken());
+  const cmds = buildSlashCommands();
+  if (guildId) {
+    await rest.put(Routes.applicationGuildCommands(client.user.id, guildId), { body: cmds });
+    console.log("Refreshed " + cmds.length + " slash commands for guild " + guildId);
+  } else {
+    await rest.put(Routes.applicationCommands(client.user.id), { body: cmds });
+    console.log("Refreshed " + cmds.length + " global slash commands");
+  }
+};
+
 client.once("ready", async () => {
   console.log("Logged in as " + client.user.tag);
-  const slash = findTriggers("trigger.slashCommand");
-  if (slash.length) {
-    const rest = new REST({ version: "10" }).setToken(resolveToken());
-    const cmds = slash.map(({ node }) => {
-      const b = new SlashCommandBuilder()
-        .setName(String(node.data.name || "cmd").toLowerCase())
-        .setDescription(String(node.data.description || "No description"));
-      const lines = String(node.data.options || "").split("\\n").map((s) => s.trim()).filter(Boolean);
-      const json = b.toJSON();
-      json.options = lines.map((line) => {
-        const [name, type, ...rest] = line.split(":");
-        return { name: (name || "opt").trim(), description: (rest.join(":") || "—").trim(), type: SLASH_OPT_TYPES[(type || "string").trim()] || 3, required: false };
-      });
-      return json;
-    });
-    try { await rest.put(Routes.applicationCommands(client.user.id), { body: cmds }); console.log("Registered " + cmds.length + " slash commands"); }
+  if (findTriggers("trigger.slashCommand").length) {
+    try { await globalThis.__refreshSlashCommands(null); }
     catch (e) { console.error("Slash register failed:", e.message); }
   }
 
@@ -698,14 +763,48 @@ function matchMessage(node, content) {
 
 function memberPayload(m) {
   const roles = m && m.roles && m.roles.cache ? Array.from(m.roles.cache.keys()).join(",") : "";
-  return { userRoles: roles, isAdmin: m && m.permissions && m.permissions.has("Administrator") ? "true" : "false" };
+  let perms = "";
+  try {
+    if (m && m.permissions && typeof m.permissions.toArray === "function") {
+      perms = m.permissions.toArray().join(",");
+    }
+  } catch {}
+  return {
+    userRoles: roles,
+    permissions: perms,
+    isAdmin: m && m.permissions && m.permissions.has("Administrator") ? "true" : "false",
+  };
+}
+
+function basePayload({ user, member, channel, guild, message }) {
+  const u = user || (member && member.user) || (message && message.author) || null;
+  const ch = channel || (message && message.channel) || null;
+  const g = guild || (member && member.guild) || (message && message.guild) || null;
+  const out = {
+    username: u ? u.username : "",
+    userId: u ? u.id : "",
+    user: u ? u.id : "",
+    userTag: u ? u.tag : "",
+    isBot: u && u.bot ? "true" : "false",
+    channelId: ch ? ch.id : "",
+    channel: ch ? ch.id : "",
+    channelName: ch ? ch.name : "",
+    guildId: g ? g.id : "",
+    guild: g ? g.id : "",
+    guildName: g ? g.name : "",
+    botId: client.user ? client.user.id : "",
+    messageId: message ? message.id : "",
+    timestamp: new Date().toISOString(),
+  };
+  if (member) Object.assign(out, memberPayload(member));
+  return out;
 }
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   for (const { flow, node } of findTriggers("trigger.messageCreate")) {
     if (!matchMessage(node, message.content)) continue;
-    const payload = { username: message.author.username, userId: message.author.id, channelId: message.channelId, message: message.content, ...memberPayload(message.member) };
+    const payload = { ...basePayload({ member: message.member, message }), message: message.content };
     const ctx = makeCtx({ client, config, payload, message });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -713,7 +812,7 @@ client.on("messageCreate", async (message) => {
 
 client.on("messageDelete", async (message) => {
   for (const { flow, node } of findTriggers("trigger.messageDelete")) {
-    const payload = { username: message.author && message.author.username, userId: message.author && message.author.id, channelId: message.channelId, message: message.content };
+    const payload = { ...basePayload({ message }), message: message.content };
     const ctx = makeCtx({ client, config, payload, message });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -721,7 +820,7 @@ client.on("messageDelete", async (message) => {
 
 client.on("messageUpdate", async (oldMsg, newMsg) => {
   for (const { flow, node } of findTriggers("trigger.messageUpdate")) {
-    const payload = { username: newMsg.author && newMsg.author.username, userId: newMsg.author && newMsg.author.id, channelId: newMsg.channelId, message: newMsg.content, oldMessage: oldMsg.content };
+    const payload = { ...basePayload({ message: newMsg }), message: newMsg.content, oldMessage: oldMsg.content };
     const ctx = makeCtx({ client, config, payload, message: newMsg });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -729,7 +828,7 @@ client.on("messageUpdate", async (oldMsg, newMsg) => {
 
 client.on("guildMemberAdd", async (member) => {
   for (const { flow, node } of findTriggers("trigger.guildMemberAdd")) {
-    const payload = { username: member.user.username, userId: member.id, ...memberPayload(member) };
+    const payload = { ...basePayload({ member }) };
     const ctx = makeCtx({ client, config, payload, member });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -737,7 +836,7 @@ client.on("guildMemberAdd", async (member) => {
 
 client.on("guildMemberRemove", async (member) => {
   for (const { flow, node } of findTriggers("trigger.guildMemberRemove")) {
-    const payload = { username: member.user && member.user.username, userId: member.id };
+    const payload = { ...basePayload({ member }) };
     const ctx = makeCtx({ client, config, payload, member });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -747,7 +846,7 @@ client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
   for (const { flow, node } of findTriggers("trigger.reactionAdd")) {
     if (node.data.emoji && reaction.emoji.name !== node.data.emoji) continue;
-    const payload = { username: user.username, userId: user.id, emoji: reaction.emoji.name, messageId: reaction.message.id, channelId: reaction.message.channelId };
+    const payload = { ...basePayload({ user, message: reaction.message }), emoji: reaction.emoji.name };
     const ctx = makeCtx({ client, config, payload, reaction });
     try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
   }
@@ -756,13 +855,13 @@ client.on("messageReactionAdd", async (reaction, user) => {
 client.on("voiceStateUpdate", async (oldS, newS) => {
   if (!oldS.channelId && newS.channelId) {
     for (const { flow, node } of findTriggers("trigger.voiceJoin")) {
-      const payload = { username: newS.member && newS.member.user.username, userId: newS.id, channelId: newS.channelId };
+      const payload = { ...basePayload({ member: newS.member }), channelId: newS.channelId, channel: newS.channelId };
       const ctx = makeCtx({ client, config, payload, member: newS.member });
       try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
     }
   } else if (oldS.channelId && !newS.channelId) {
     for (const { flow, node } of findTriggers("trigger.voiceLeave")) {
-      const payload = { username: oldS.member && oldS.member.user.username, userId: oldS.id, channelId: oldS.channelId };
+      const payload = { ...basePayload({ member: oldS.member }), channelId: oldS.channelId, channel: oldS.channelId };
       const ctx = makeCtx({ client, config, payload, member: oldS.member });
       try { await runFlow(flow, node.id, ctx); } catch (e) { console.error(e); }
     }
@@ -774,7 +873,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
       for (const { flow, node } of findTriggers("trigger.slashCommand")) {
         if (String(node.data.name || "").toLowerCase() === interaction.commandName) {
-          const payload = { username: interaction.user.username, userId: interaction.user.id, channelId: interaction.channelId, ...memberPayload(interaction.member) };
+          const payload = { ...basePayload({ user: interaction.user, member: interaction.member, channel: interaction.channel, guild: interaction.guild }) };
           for (const opt of interaction.options.data || []) payload["opt_" + opt.name] = opt.value;
           const ctx = makeCtx({ client, config, payload, interaction });
           await runFlow(flow, node.id, ctx);
@@ -783,7 +882,7 @@ client.on("interactionCreate", async (interaction) => {
     } else if (interaction.isButton()) {
       for (const { flow, node } of findTriggers("trigger.buttonInteraction")) {
         if (node.data.customId === interaction.customId) {
-          const payload = { username: interaction.user.username, userId: interaction.user.id, ...memberPayload(interaction.member) };
+          const payload = { ...basePayload({ user: interaction.user, member: interaction.member, channel: interaction.channel, guild: interaction.guild }) };
           const ctx = makeCtx({ client, config, payload, interaction });
           await runFlow(flow, node.id, ctx);
         }
@@ -791,7 +890,7 @@ client.on("interactionCreate", async (interaction) => {
     } else if (interaction.isAnySelectMenu && interaction.isAnySelectMenu()) {
       for (const { flow, node } of findTriggers("trigger.selectMenuInteraction")) {
         if (node.data.customId === interaction.customId) {
-          const payload = { username: interaction.user.username, userId: interaction.user.id, values: interaction.values, ...memberPayload(interaction.member) };
+          const payload = { ...basePayload({ user: interaction.user, member: interaction.member, channel: interaction.channel, guild: interaction.guild }), values: interaction.values };
           const ctx = makeCtx({ client, config, payload, interaction });
           await runFlow(flow, node.id, ctx);
         }
@@ -799,7 +898,7 @@ client.on("interactionCreate", async (interaction) => {
     } else if (interaction.isModalSubmit && interaction.isModalSubmit()) {
       for (const { flow, node } of findTriggers("trigger.modalSubmit")) {
         if (node.data.customId === interaction.customId) {
-          const payload = { username: interaction.user.username, userId: interaction.user.id };
+          const payload = { ...basePayload({ user: interaction.user, member: interaction.member, channel: interaction.channel, guild: interaction.guild }) };
           for (const [id, comp] of interaction.fields.fields) payload["field_" + id] = comp.value;
           const ctx = makeCtx({ client, config, payload, interaction });
           await runFlow(flow, node.id, ctx);

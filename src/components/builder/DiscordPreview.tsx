@@ -79,19 +79,23 @@ function MessageBlock({ ev }: { ev: DiscordEvent }) {
           </div>
         )}
 
-        {m?.buttons && m.buttons.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {m.buttons.map((b, i) => (
-              <button
-                key={i}
-                disabled={b.disabled}
-                className={`text-white text-sm font-medium px-3 py-1.5 rounded transition-colors ${
-                  STYLE_BG[b.style] || STYLE_BG.Primary
-                } ${b.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                title={b.url || b.customId}
-              >
-                {b.emoji ? `${b.emoji} ` : ""}{b.label}
-              </button>
+        {m?.buttonRows && m.buttonRows.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {m.buttonRows.map((row, ri) => (
+              <div key={ri} className="flex flex-wrap gap-2">
+                {row.map((b, i) => (
+                  <button
+                    key={i}
+                    disabled={b.disabled}
+                    className={`text-white text-sm font-medium px-3 py-1.5 rounded transition-colors ${
+                      STYLE_BG[b.style] || STYLE_BG.Primary
+                    } ${b.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    title={b.url || b.customId}
+                  >
+                    {b.emoji ? `${b.emoji} ` : ""}{b.label}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         )}

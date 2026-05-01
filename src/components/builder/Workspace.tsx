@@ -83,9 +83,7 @@ export function Workspace() {
     [activeFlow, selectedNodeId],
   );
 
-  if (!project || !activeFlow) {
-    return <div className="flex items-center justify-center h-screen text-muted-foreground">Loading…</div>;
-  }
+ 
 
   const updateProject = (next: Project) => setProject({ ...next });
   const updateFlow = (next: Flow) => {
@@ -106,6 +104,49 @@ export function Workspace() {
     updateFlow({ ...activeFlow, nodes: [...activeFlow.nodes, node] });
     setSelectedNodeId(node.id);
   };
+
+  // Copy / paste / duplicate selected node via keyboard.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      const key = e.key.toLowerCase();
+      if (key === "c" && selectedNode) {
+        e.preventDefault();
+        try { localStorage.setItem("clipboard-node", JSON.stringify(selectedNode)); toast.success("Node copied"); } catch { /* */ }
+      } else if (key === "v") {
+        e.preventDefault();
+        try {
+          const raw = localStorage.getItem("clipboard-node");
+          if (!raw) return;
+          const src = JSON.parse(raw) as FlowNode;
+          const copy: FlowNode = {
+            ...src, id: newId("node"),
+            position: { x: src.position.x + 40, y: src.position.y + 40 },
+          };
+          updateFlow({ ...activeFlow, nodes: [...activeFlow.nodes, copy] });
+          setSelectedNodeId(copy.id);
+        } catch { /* */ }
+      } else if (key === "d" && selectedNode) {
+        e.preventDefault();
+        const copy: FlowNode = {
+          ...selectedNode, id: newId("node"),
+          position: { x: selectedNode.position.x + 40, y: selectedNode.position.y + 40 },
+        };
+        updateFlow({ ...activeFlow, nodes: [...activeFlow.nodes, copy] });
+        setSelectedNodeId(copy.id);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedNode, activeFlow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+   if (!project || !activeFlow) {
+    return <div className="flex items-center justify-center h-screen text-muted-foreground">Loading…</div>;
+  }
 
   const updateSelectedData = (data: Record<string, unknown>) => {
     if (!selectedNode) return;
@@ -197,12 +238,13 @@ export function Workspace() {
             <Bot className="w-5 h-5" />
           </div>
           <div>
+            <div className="text-sm font-semibold leading-tight">No-Code Bot Builder</div>
             <Input
               value={project.name}
               onChange={(e) => updateProject({ ...project, name: e.target.value })}
-              className="h-7 text-sm font-semibold border-none shadow-none focus-visible:ring-1 px-1 w-56"
+              placeholder="Untitled bot…"
+              className="h-5 text-[11px] text-muted-foreground border-none shadow-none focus-visible:ring-1 px-1 w-56"
             />
-            <div className="text-[10px] text-muted-foreground px-1">No-Code Discord Bot Builder</div>
           </div>
         </div>
 
@@ -329,6 +371,7 @@ export function Workspace() {
               node={selectedNode}
               onChange={updateSelectedData}
               onDelete={deleteSelected}
+              flows={project.flows}
             />
           </div>
         </aside>

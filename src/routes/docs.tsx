@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { NODE_TYPES, CATEGORY_LABELS, CATEGORY_COLORS } from "@/lib/nodes";
-import { Bot, ArrowLeft, Sparkles } from "lucide-react";
+import { PREDEFINED_VARIABLES } from "@/lib/variables";
+import { Bot, ArrowLeft, Sparkles, Keyboard } from "lucide-react";
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
@@ -86,28 +87,55 @@ function DocsPage() {
           <p className="text-muted-foreground">
             Anywhere a node accepts text, you can inject runtime values with{" "}
             <code className="px-1.5 py-0.5 rounded bg-muted text-sm">{"${name}"}</code>.
-            Useful built-in variables (depending on the trigger):
+            These names are <strong>reserved</strong> — the inspector will warn you if you try to
+            create a variable with one of them.
           </p>
+          {Array.from(new Set(PREDEFINED_VARIABLES.map((v) => v.group))).map((group) => (
+            <div key={group} className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{group}</h3>
+              <div className="grid md:grid-cols-2 gap-3">
+                {PREDEFINED_VARIABLES.filter((v) => v.group === group).map((v) => (
+                  <div key={v.name} className="p-3 rounded-md border bg-card">
+                    <div className="font-mono text-sm text-foreground">{`\${${v.name}}`}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{v.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Shortcuts */}
+        <section className="space-y-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Keyboard className="w-6 h-6" /> Keyboard shortcuts
+          </h2>
           <div className="grid md:grid-cols-2 gap-3">
             {[
-              ["${username}", "Author's display name"],
-              ["${userId}", "Author / interacting user's Discord ID"],
-              ["${channelId}", "Channel the event happened in"],
-              ["${message}", "Message content (for message triggers)"],
-              ["${values}", "Selected values from a select menu"],
-              ["${field_<id>}", "Modal answer for the field with that customId"],
-              ["${opt_<name>}", "Slash command option value"],
-              ["${i}", "Loop index inside Loop / For Each"],
-              ["${item}", "Current item inside For Each"],
-              ["${error}", "Error message inside a Try/Catch's catch branch"],
-              ["${config.path.to.value}", "Read anything from your config.json"],
+              ["Ctrl / ⌘ + C", "Copy the selected node"],
+              ["Ctrl / ⌘ + V", "Paste a copied node into the canvas"],
+              ["Ctrl / ⌘ + D", "Duplicate the selected node"],
+              ["Delete / Backspace", "Delete the selected node or edge"],
+              ["Right-click an edge", "Instantly delete the connection"],
+              ["Alt-click an edge", "Delete that single connection"],
             ].map(([k, v]) => (
-              <div key={k} className="p-3 rounded-md border bg-card">
-                <div className="font-mono text-sm text-foreground">{k}</div>
-                <div className="text-xs text-muted-foreground mt-1">{v}</div>
+              <div key={k} className="p-3 rounded-md border bg-card flex items-center gap-3">
+                <code className="px-2 py-1 rounded bg-muted text-xs font-mono shrink-0">{k}</code>
+                <span className="text-sm text-muted-foreground">{v}</span>
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Buttons rows */}
+        <section className="space-y-4">
+          <h2 className="text-2xl font-bold">Button rows &amp; columns</h2>
+          <p className="text-muted-foreground">
+            Each message can carry up to <strong>5 rows × 5 buttons = 25 buttons</strong>. In any
+            message-sending node (Send Message, Reply, Interaction Reply), open the
+            <strong> Buttons</strong> editor, click <em>Add row</em>, then add buttons inside that row.
+            Each row renders as one horizontal line in Discord.
+          </p>
         </section>
 
         {/* Components: buttons / select / modal */}

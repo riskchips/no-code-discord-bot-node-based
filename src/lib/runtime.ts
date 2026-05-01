@@ -114,6 +114,17 @@ async function execNode(node: FlowNode, ctx: RunCtx): Promise<string | undefined
       const ok = String(ctx.variables.isAdmin || "") === "true";
       return ok ? "true" : "false";
     }
+    case "condition.hasPermission": {
+      const perms = String(ctx.variables.permissions || "").split(",").map((s) => s.trim());
+      const need = String(data.permission || "");
+      const ok = perms.includes(need) || String(ctx.variables.isAdmin || "") === "true";
+      ctx.log("info", `Has permission ${need}? ${ok}`, node.id);
+      return ok ? "true" : "false";
+    }
+    case "condition.isBot": {
+      const ok = String(ctx.variables.isBot || "") === "true";
+      return ok ? "true" : "false";
+    }
 
     case "delay.wait": {
       const ms = Number(data.ms) || 0;
@@ -289,20 +300,30 @@ async function execNode(node: FlowNode, ctx: RunCtx): Promise<string | undefined
     case "interaction.reply": {
       const type: "text" | "embed" = data.messageType === "embed" ? "embed" : "text";
       const content = r("content");
-      let buttons: { label: string; style: string; emoji?: string; disabled?: boolean; url?: string; customId?: string }[] = [];
+      type BtnT = { label: string; style: string; emoji?: string; disabled?: boolean; url?: string; customId?: string };
+      let buttonRows: BtnT[][] = [];
       type MenuT = NonNullable<NonNullable<DiscordEvent["message"]>["selectMenu"]>;
       let menu: MenuT | null = null;
       try {
         const parsed = JSON.parse(String(data.buttons || "[]"));
         if (Array.isArray(parsed)) {
-          buttons = parsed.map((b: Record<string, unknown>) => ({
-            label: resolve(String(b.label ?? "Button")),
-            style: String(b.style ?? "Primary"),
-            emoji: b.emoji ? String(b.emoji) : undefined,
-            disabled: !!b.disabled,
-            url: b.url ? resolve(String(b.url)) : undefined,
-            customId: b.customId ? resolve(String(b.customId)) : undefined,
-          }));
+          // Backward-compat: flat array → wrap into one row
+          const rows: unknown[][] = parsed.length && !Array.isArray(parsed[0])
+            ? [parsed as unknown[]]
+            : (parsed as unknown[][]);
+          buttonRows = rows.map((row) =>
+            (Array.isArray(row) ? row : []).map((b) => {
+              const o = b as Record<string, unknown>;
+              return {
+                label: resolve(String(o.label ?? "Button")),
+                style: String(o.style ?? "Primary"),
+                emoji: o.emoji ? String(o.emoji) : undefined,
+                disabled: !!o.disabled,
+                url: o.url ? resolve(String(o.url)) : undefined,
+                customId: o.customId ? resolve(String(o.customId)) : undefined,
+              };
+            }),
+          );
         }
       } catch { /* */ }
       try {
@@ -344,7 +365,7 @@ async function execNode(node: FlowNode, ctx: RunCtx): Promise<string | undefined
           type, content,
           embedTitle: type === "embed" ? r("embedTitle") : undefined,
           embedColor: type === "embed" ? (r("embedColor") || "#5865F2") : undefined,
-          buttons, selectMenu: menu,
+          buttonRows, selectMenu: menu,
         },
       });
       if (data.saveAs) ctx.variables[String(data.saveAs)] = "msg_" + Math.random().toString(36).slice(2, 10);
@@ -487,9 +508,19 @@ export async function runFlow(opts: RunOptions): Promise<void> {
 
   for (const trigger of triggers) {
     log("info", `── Running trigger: ${trigger.type} (${trigger.id}) ──`);
+    // Predefined variables every flow has access to.
     const variables: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
-      username: "tester", userId: "1", message: "hi",
+      username: "tester",
+      userId: "1000000000000001",
+      user: "1000000000000001",       // alias of userId — clicker / sender
+      channel: "2000000000000001",    // current channel id
+      channelId: "2000000000000001",
+      guild: "3000000000000001",      // current guild id
+      guildId: "3000000000000001",
+      message: "hi",
+      messageId: "4000000000000001",
+      botId: "5000000000000001",
       ...baseVars,
       ...(opts.triggerPayload || {}),
     };

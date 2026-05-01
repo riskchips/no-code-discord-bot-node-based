@@ -18,7 +18,7 @@ export function createEmptyFlow(name = "New Flow"): Flow {
   };
 }
 
-export function createEmptyProject(name = "My Discord Bot"): Project {
+export function createEmptyProject(name = "Untitled Bot"): Project {
   return {
     id: newId("proj"),
     name,

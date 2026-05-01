@@ -114,7 +114,8 @@ export interface DiscordEvent {
     content?: string;
     embedTitle?: string;
     embedColor?: string;
-    buttons?: { label: string; style: string; emoji?: string; disabled?: boolean; url?: string; customId?: string }[];
+    /** Rows of buttons. Discord allows up to 5 rows × 5 buttons. */
+    buttonRows?: { label: string; style: string; emoji?: string; disabled?: boolean; url?: string; customId?: string }[][];
     selectMenu?: {
       customId: string;
       placeholder?: string;

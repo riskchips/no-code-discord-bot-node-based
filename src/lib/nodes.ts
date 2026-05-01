@@ -132,6 +132,31 @@ export const NODE_TYPES: NodeTypeDef[] = [
     inputs: 1, outputs: [{ id: "true", label: "Yes" }, { id: "false", label: "No" }],
     fields: [],
   },
+  {
+    type: "condition.hasPermission", category: "condition", label: "Has Permission?",
+    description: "Branch on whether the trigger user has a specific Discord permission",
+    inputs: 1, outputs: [{ id: "true", label: "Yes" }, { id: "false", label: "No" }],
+    fields: [
+      { key: "permission", label: "Permission", type: "select", required: true, default: "ManageMessages",
+        options: [
+          "Administrator","ManageGuild","ManageRoles","ManageChannels","ManageMessages","ManageWebhooks",
+          "ManageNicknames","ManageEmojisAndStickers","ManageEvents","ManageThreads",
+          "KickMembers","BanMembers","ModerateMembers",
+          "ViewChannel","SendMessages","SendMessagesInThreads","CreatePublicThreads","CreatePrivateThreads",
+          "EmbedLinks","AttachFiles","ReadMessageHistory","MentionEveryone","UseExternalEmojis",
+          "AddReactions","Connect","Speak","MuteMembers","DeafenMembers","MoveMembers","UseVAD",
+          "PrioritySpeaker","Stream","UseApplicationCommands","RequestToSpeak",
+          "ChangeNickname","ViewAuditLog","ViewGuildInsights",
+        ].map((p) => ({ label: p, value: p })),
+        help: "Uses Discord's PermissionFlagsBits names." },
+    ],
+  },
+  {
+    type: "condition.isBot", category: "condition", label: "Is Bot?",
+    description: "Branch on whether the trigger user is a bot",
+    inputs: 1, outputs: [{ id: "true", label: "Yes" }, { id: "false", label: "No" }],
+    fields: [],
+  },
 
   // ───────────── LOGIC ─────────────
   {
@@ -371,6 +396,56 @@ export const NODE_TYPES: NodeTypeDef[] = [
     description: "Archive a thread by ID",
     inputs: 1, outputs: [{ id: "out", label: "Then" }],
     fields: [{ key: "threadId", label: "Thread ID", type: "text", required: true }],
+  },
+
+  // ───────────── ACTIONS — BOT / PRESENCE ─────────────
+  {
+    type: "action.setPresence", category: "action", label: "Set Bot Presence",
+    description: "Change the bot's status and activity",
+    inputs: 1, outputs: [{ id: "out", label: "Then" }],
+    fields: [
+      { key: "status", label: "Status", type: "select", default: "online", options: [
+        { label: "Online", value: "online" }, { label: "Idle", value: "idle" },
+        { label: "Do Not Disturb", value: "dnd" }, { label: "Invisible", value: "invisible" },
+      ]},
+      { key: "activityType", label: "Activity type", type: "select", default: "Playing", options: [
+        { label: "Playing", value: "Playing" }, { label: "Watching", value: "Watching" },
+        { label: "Listening", value: "Listening" }, { label: "Competing", value: "Competing" },
+        { label: "Custom", value: "Custom" },
+      ]},
+      { key: "activity", label: "Activity text", type: "text", placeholder: "with no-code bots" },
+    ],
+  },
+  {
+    type: "action.refreshSlashCommands", category: "action", label: "Refresh Slash Commands",
+    description: "Re-register every Slash Command node with Discord. Same as bot startup.",
+    inputs: 1, outputs: [{ id: "out", label: "Then" }],
+    fields: [
+      { key: "scope", label: "Scope", type: "select", default: "global", options: [
+        { label: "Global (all servers)", value: "global" },
+        { label: "Current guild only", value: "guild" },
+      ]},
+    ],
+  },
+  {
+    type: "action.fetchUser", category: "action", label: "Fetch User",
+    description: "Fetch a user by ID and save fields as variables",
+    inputs: 1, outputs: [{ id: "out", label: "Then" }],
+    fields: [
+      { key: "userId", label: "User ID", type: "text", required: true, default: "${user}" },
+      { key: "saveAs", label: "Save username as", type: "text", default: "fetchedUsername" },
+    ],
+  },
+  {
+    type: "action.sendFile", category: "action", label: "Send File",
+    description: "Send a file (URL) as an attachment to a channel",
+    inputs: 1, outputs: [{ id: "out", label: "Then" }],
+    fields: [
+      { key: "channelId", label: "Channel ID (blank = current)", type: "text" },
+      { key: "url", label: "File URL", type: "text", required: true },
+      { key: "filename", label: "Filename (optional)", type: "text", placeholder: "image.png" },
+      { key: "content", label: "Message content (optional)", type: "textarea" },
+    ],
   },
 
   // ───────────── INTERACTIONS ─────────────
